@@ -1,6 +1,8 @@
 import express from "express"
 import cors from "cors"
 import globalErrorHandler from "./middlewares/error.middleware";
+import dotenv from "dotenv"
+dotenv.config();
 
 const app = express();
 app.use(cors())

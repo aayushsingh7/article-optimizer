@@ -3,7 +3,7 @@ import {z} from "zod";
 import {zodToJsonSchema} from "zod-to-json-schema";
 import CustomError from "../utils/error.util";
 
-const ai = new GoogleGenAI({apiKey: "AIzaSyAmHRMfufXw8E7F9O22XI3evOzeZzq1YmE"});
+const ai = new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
 
 const SEOArticleSchema = z.object({
     totalKeywordsAdded: z.number().describe("Count of SEO keywords integrated from the top-ranked articles."),
