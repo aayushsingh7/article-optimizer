@@ -37,7 +37,7 @@ const generatePrompt = (heading, html, references)=> {
 }
 
 class AiService {
-    async optimizeWithLLM(heading, htmlBody, references) {
+    async optimizeWithLLM({heading, htmlBody, references}) {
         try {
             const prompt = generatePrompt(heading, htmlBody, references)
             const response = await ai.models.generateContent({
