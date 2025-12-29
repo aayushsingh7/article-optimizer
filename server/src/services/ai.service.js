@@ -56,7 +56,7 @@ class AiService {
             return article;
         } catch (err) {
             console.error(err);
-            throw new CustomError("Internal Server Error", 500);
+            throw new CustomError(err.message, err.statusCode);
         }
     }
 }
