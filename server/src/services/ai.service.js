@@ -1,20 +1,39 @@
+import {config} from "dotenv";
+config();
 import {GoogleGenAI} from "@google/genai";
-import {z} from "zod";
-import {zodToJsonSchema} from "zod-to-json-schema";
-import CustomError from "../utils/error.util";
+import CustomError from "../utils/error.util.js";
 
-const ai = new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
+const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-const SEOArticleSchema = z.object({
-    totalKeywordsAdded: z.number().describe("Count of SEO keywords integrated from the top-ranked articles."),
-    newlyAddedLines: z.number().describe("Count of new sentences or lines added to the original text."),
-    linesRemoved: z.number().describe("Count of redundant or low-quality lines removed from the original text."),
-    html: z.string().describe("The complete, SEO-optimized HTML article content."),
-    heading: z.string().describe("The optimized SEO title or H1 for the article."),
-});
+const responseSchema = {
+    type: "object",
+    properties: {
+        totalKeywordsAdded: {
+            type: "number",
+            description: "Count of SEO keywords integrated from the top-ranked articles.",
+        },
+        newlyAddedLines: {
+            type: "number",
+            description: "Count of new sentences or lines added to the original text.",
+        },
+        linesRemoved: {
+            type: "number",
+            description: "Count of redundant or low-quality lines removed from the original text.",
+        },
+        html: {
+            type: "string",
+            description: "The complete, SEO-optimized HTML article content.",
+        },
+        heading: {
+            type: "string",
+            description: "The optimized SEO title or H1 for the article.",
+        },
+    },
+    required: ["totalKeywordsAdded", "newlyAddedLines", "linesRemoved", "html", "heading"],
+};
 
-const generatePrompt = (heading, html, references)=> {
-    return   `
+const generatePrompt = (heading, html, references) => {
+    return `
       I have a base HTML article and two high-ranking SEO reference articles.
       
       BASE HTML HEADING (H1): 
@@ -24,7 +43,10 @@ const generatePrompt = (heading, html, references)=> {
       ${html}
       
       SEO REFERENCE ARTICLES (DATA TO LEARN FROM):
-      ${references.join("\n")}
+     ${references
+     .map((r, i) => `Reference ${i + 1}:\nTitle: ${r.title}\nContent: ${r.content}\nCitation: ${r.url}`)
+     .join("\n\n")}
+
       
       TASK:
       1. Analyze the SEO references for high-value keywords and topics.
@@ -34,30 +56,24 @@ const generatePrompt = (heading, html, references)=> {
       5. Ensure the final output is valid HTML wrapped in appropriate tags.
       6. Return the statistics, the updated heading, and the final HTML in the requested JSON format.
     `;
-}
+};
 
 class AiService {
     async optimizeWithLLM({heading, htmlBody, references}) {
-        try {
-            const prompt = generatePrompt(heading, htmlBody, references)
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: [prompt],
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: zodToJsonSchema(genAIResponseSchema),
-                    tools: [{urlContext: {}}],
-                    temperature: 0.2,
-                },
-            });
+        const prompt = generatePrompt(heading, htmlBody, references);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [prompt],
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema,
+                // tools: [{urlContext: {}}],
+                temperature: 0.2,
+            },
+        });
 
-            const article = SEOArticleSchema.parse(JSON.parse(response.text));
-            console.log(article)
-            return article;
-        } catch (err) {
-            console.error(err);
-            throw new CustomError(err.message, err.statusCode);
-        }
+        const article = response.text;
+        return article;
     }
 }
 

@@ -1,17 +1,43 @@
-import CustomError from "../utils/error.util";
+import CustomError from "../utils/error.util.js";
 import {chromium} from "playwright";
-import {JSDOM} from "jsdom";
+import {JSDOM, VirtualConsole} from "jsdom";
 import {Readability} from "@mozilla/readability";
-import cleanHTML from "../utils/cleanHTML.util";
+import cleanHTML from "../utils/cleanHTML.util.js";
 
-class WebScraper {
-    async scrapeBeyondChatArticleLinks({length = 5, orderBy = "latest"} = {length, orderBy}) {
+class WebScraperService {
+    constructor() {
+        this.browser = null;
+    }
+
+    async _getBrowser(useCDP = false) {
+        if (this.browser && this.browser.isConnected()) {
+            return this.browser;
+        }
+
+        if (useCDP) {
+            try {
+                this.browser = await chromium.connectOverCDP("http://localhost:9222");
+            } catch (error) {
+                console.error("CDP Connection failed. Ensure Chrome is running with --remote-debugging-port=9222");
+                throw new CustomError("Failed to connect to browser via CDP", 500);
+            }
+        } else {
+            this.browser = await chromium.launch({
+                headless: true,
+                args: ["--disable-blink-features=AutomationControlled"],
+            });
+        }
+
+        return this.browser;
+    }
+
+    async scrapeBeyondChatArticleLinks({length = 5, orderBy = "latest"} = {}) {
         const articles = [];
-        try {
-            const browser = await chromium.launch();
-            const context = await browser.newContext();
-            const page = await context.newPage();
+        const browser = await this._getBrowser(false); 
+        const context = await browser.newContext(); 
+        const page = await context.newPage();
 
+        try {
             await page.goto("https://beyondchats.com/blogs/");
             await page.waitForLoadState("load");
 
@@ -26,73 +52,94 @@ class WebScraper {
 
                 await Promise.all([page.waitForNavigation(), nextBtn.click()]);
             }
-
-            return orderBy === "latest" ? articles.slice(0, length) : articles.slice(-length);
-        } catch (err) {
-            console.error(err);
-            throw new CustomError(err.message, err.statusCode);
         } finally {
-            await browser.close();
+            await context.close();
         }
-    }
-    async scrapeTopGoogleLinks({length = 2} = {length, topic}) {
-        if(!topic) throw new CustomError("Topic is required", 400)
-        const topArticles = [];
-        try {
-            const browser = await chromium.connectOverCDP("http://localhost:9222");
-            const defaultContext = browser.contexts()[0];
-            const page = defaultContext.pages()[0];
-            await page.goto(`https://www.google.com/search?q=${encodeURIComponent(topic)}`);
 
-            const urls = await page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll("a h3"));
-                return links.map((h3) => h3.parentElement.href).slice(0, length);
+        return orderBy === "latest" ? articles.slice(0, length) : articles.slice(-length);
+    }
+
+    async scrapeTopGoogleLinks({length = 2, topic = ""} = {}) {
+        if (!topic) throw new CustomError("Topic is required", 400);
+
+        const topArticles = [];
+        const virtualConsole = new VirtualConsole();
+        virtualConsole.on("error", () => {});
+
+        const browser = await this._getBrowser(true);
+        const context = await browser.newContext();
+        const page = await context.newPage();
+
+        try {
+            await page.goto(`https://www.google.com/search?q=${encodeURIComponent(topic)}`, {
+                waitUntil: "domcontentloaded",
             });
 
+            const urls = await page.evaluate((len) => {
+                const links = Array.from(document.querySelectorAll("a h3"));
+                return links.map((h3) => h3.parentElement.href).slice(0, len);
+            }, length);
+
             for (const url of urls) {
-                await page.goto(url, {waitUntil: "networkidle", timeout: 30000});
-                const html = await page.content();
+                try {
+                    await page.goto(url, {waitUntil: "domcontentloaded", timeout: 15000});
+                    const html = await page.content();
+                    const dom = new JSDOM(html, {url, virtualConsole});
 
-                const dom = new JSDOM(html, {url});
-                const reader = new Readability(dom.window.document);
-                const article = reader.parse();
+                    const reader = new Readability(dom.window.document);
+                    const article = reader.parse();
 
-                if (article && article.textContent) {
-                    const cleanText = article.textContent.replace(/\s+/g, " ").trim();
-                    topArticles.push({
-                        title: article.title,
-                        url: url,
-                        content: cleanText,
-                        site: article.siteName,
-                    });
+                    if (article?.textContent) {
+                        topArticles.push({
+                            title: article.title,
+                            url: url,
+                            content: article.textContent.replace(/\s+/g, " ").trim(),
+                            site: article.siteName,
+                        });
+                    }
+                    dom.window.close();
+                } catch (innerErr) {
+                    console.error(`Skipping ${url}:`, innerErr.message);
                 }
             }
             return {citations: urls, articles: topArticles};
-        } catch (err) {
-            console.error(err);
-            throw new CustomError(err.message, err.statusCode);
         } finally {
-            await browser.close();
+            await context.close();
         }
     }
-    async scrapeArticleHTML({url}) {
-        if(!url) throw new CustomError("Url is required", 400)
-        try {
-            const browser = await chromium.connectOverCDP("http://localhost:9222");
-            const defaultContext = browser.contexts()[0];
-            const page = defaultContext.pages()[0];
-            await page.goto(url);
-            await page.waitForLoadState("load");
-            const rawHTML = await page.$eval('#content [data-element_type="widget"]', (el) => el.innerHTML);
-            const html = cleanHTML(rawHTML);
-            return html;
-        } catch (err) {
-            console.error(er);
-            throw new CustomError(err.message, err.statusCode);
-        } finally {
-            await browser.close();
-        }
-    }
-} 
 
-export default WebScraper;
+    async scrapeArticleHTML({url, useCDP = true}) {
+        if (!url) throw new CustomError("Url is required", 400);
+
+        const browser = await this._getBrowser(useCDP);
+        const context = await browser.newContext({
+            userAgent:
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        });
+        const page = await context.newPage();
+
+        try {
+            await page.goto(url, {waitUntil: "domcontentloaded", timeout: 15000});
+
+            const h1 = await page.$("h1");
+            const title = h1 ? await h1.textContent() : "No Title";
+            const img = await page.$('#content [data-element_type="widget"] img');
+            const thumbnail = await img.getAttribute("src");
+            const selector = '#content [data-element_type="widget"]';
+            const element = page.locator(selector).first();
+
+            await element.waitFor({state: "attached", timeout: 5000}).catch(() => {
+                throw new CustomError(`Selector "${selector}" not found.`, 404);
+            });
+
+            const rawHTML = await element.innerHTML();
+            if (!rawHTML) throw new CustomError("Empty content.", 500);
+
+            return {thumbnail, topic: title, html: cleanHTML(rawHTML)};
+        } finally {
+            await context.close();
+        }
+    }
+}
+
+export default WebScraperService;
