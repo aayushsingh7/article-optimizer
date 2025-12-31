@@ -78,10 +78,15 @@ npm run dev
 ```
 
 ---
+## 5. How It Works (from BeyondChat article URL to optimized article)
 
-## 5. Backend Services (Important)
+![how-it-works](how-it-works.png)
 
-### 5.1 WebScraperService
+---
+
+## 6. Backend Services (Important)
+
+### 6.1 WebScraperService
 
 Handles all scraping logic using Playwright.
 
@@ -99,16 +104,16 @@ Handles all scraping logic using Playwright.
 
 ---
 
-### 5.2 AiService
+### 6.2 AiService
 
-Responsible for AI‑based content optimization.
+Responsible for AI-based content optimization.
 
 * `optimizeWithLLM({ heading, htmlBody, references })`
-  Uses the original article structure and Google references to generate an SEO‑optimized article.
+  Uses the original article structure and Google references to generate an SEO-optimized article.
 
 ---
 
-### 3. ArticleService
+### 6.3 ArticleService
 
 Main orchestration layer.
 
@@ -170,9 +175,9 @@ All remaining methods handle standard CRUD operations.
 
 ---
 
-## API Routes
+## 7. API Routes
 
-Only article‑related APIs are exposed. WebScraperService and AiService are internal.
+Only article-related APIs are exposed. WebScraperService and AiService are internal.
 
 ```js
 GET    /api/articles
@@ -184,8 +189,8 @@ DELETE /api/articles/:id
 
 ---
 
-## Notes
+## 8. Notes
 
 * Designed specifically for BeyondChats article optimization
-* Scraping logic is domain‑aware and customizable
+* Scraping logic is domain-aware and customizable
 * LLM output is stored as structured, clean HTML
