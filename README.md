@@ -43,6 +43,38 @@ GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 MONGODB_URL="mongodb+srv://guest:guest@main.yjq0p6m.mongodb.net/?appName=main"
 ```
 
+### Playwright CDP Setup (Required)
+
+This project uses **Playwright with Chrome DevTools Protocol (CDP)** for stable scraping.
+
+1. **Install Google Chrome** (if not already installed)
+
+2. **Add Chrome to PATH (Windows)**
+
+   Add the following directory to your **User Environment Variables → PATH**:
+
+   ```
+   C:\Program Files\Google\Chrome\Application\
+   ```
+
+3. **Start Chrome in remote debugging mode**
+
+   Open a new terminal and run:
+
+   ```bash
+   chrome --remote-debugging-port=9222 --user-data-dir="C:\tmp\chrome-debug"
+   ```
+
+4. **Verify CDP connection**
+
+   Open your browser and visit:
+
+   ```
+   http://localhost:9222/json
+   ```
+
+   If setup is correct, you will see a list of active Chrome targets in JSON format.
+
 Start the backend server (development mode):
 
 ```bash
@@ -78,6 +110,7 @@ npm run dev
 ```
 
 ---
+
 ## 5. How It Works (from BeyondChat article URL to optimized article)
 
 ![how-it-works](how-it-works.png)
@@ -87,6 +120,8 @@ npm run dev
 ## 6. Backend Services (Important)
 
 ### 6.1 WebScraperService
+
+> ⚠️ **Disclaimer**: Currently works **only in local development** as it requires an active **Chrome DevTools Protocol (CDP)** connection.
 
 Handles all scraping logic using Playwright.
 
