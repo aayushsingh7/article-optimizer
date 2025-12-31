@@ -79,7 +79,7 @@ npm run dev
 
 ---
 
-## 5. Backend Architecture (Important)
+## 5. Backend Services (Important)
 
 ### 5.1 WebScraperService
 
@@ -176,7 +176,7 @@ Only article‑related APIs are exposed. WebScraperService and AiService are int
 
 ```js
 GET    /api/articles
-POST   /api/articles/optimize
+POST   /api/articles/optimize (url in req.body)
 GET    /api/articles/:id
 PUT    /api/articles/:id
 DELETE /api/articles/:id
