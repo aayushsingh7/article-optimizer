@@ -4,9 +4,9 @@ const articleService = new ArticleService();
 
 class ArticleController {
     async getArticles(req, res, next) {
-        const {offset, version} = req.query;
+        const {offset, query} = req.query;
         try {
-            const articles = await articleService.getArticles({offset, version});
+            const articles = await articleService.getArticles({offset, query});
             res.status(200).send({success: true, message: "Articles fetched successfully", data: articles});
         } catch (err) {
             next(err);
@@ -17,6 +17,25 @@ class ArticleController {
         try {
             const articles = await articleService.getArticle({id});
             res.status(200).send({success: true, message: "Article fetched successfully", data: articles});
+        } catch (err) {
+            next(err);
+        }
+    }
+    async updateArticle(req, res, next) {
+        const {id} = req.params;
+        const {data} = req.body;
+        try {
+            await articleService.updateAricle({data, id});
+            res.status(200).send({success: true, message: "Updated successfully"});
+        } catch (err) {
+            next(err);
+        }
+    }
+    async deleteArticle(req, res, next) {
+        const {id} = req.params;
+        try {
+            await articleService.deleteArticle({id});
+            res.status(200).send({success: true, message: "Deleted successfully"});
         } catch (err) {
             next(err);
         }

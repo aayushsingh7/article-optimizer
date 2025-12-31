@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use("/articles", articleRouter)
+app.use("/api/articles", articleRouter)
 app.use(globalErrorHandler);
 
 app.listen(4000, (err) => {

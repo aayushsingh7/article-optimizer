@@ -5,7 +5,9 @@ const controller = new ArticleController();
 const articleRouter = Router();
 
 articleRouter.get("/", controller.getArticles);
+articleRouter.post("/optimize", controller.optimizeArticle);
 articleRouter.get("/:id", controller.getArticle);
-articleRouter.post("/optimize", controller.optimizeArticle)
+articleRouter.delete("/:id", controller.deleteArticle);
+articleRouter.put("/:id", controller.updateArticle);
 
 export default articleRouter;

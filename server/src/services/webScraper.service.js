@@ -33,8 +33,8 @@ class WebScraperService {
 
     async scrapeBeyondChatArticleLinks({length = 5, orderBy = "latest"} = {}) {
         const articles = [];
-        const browser = await this._getBrowser(false); 
-        const context = await browser.newContext(); 
+        const browser = await this._getBrowser(false);
+        const context = await browser.newContext();
         const page = await context.newPage();
 
         try {
@@ -73,6 +73,7 @@ class WebScraperService {
         try {
             await page.goto(`https://www.google.com/search?q=${encodeURIComponent(topic)}`, {
                 waitUntil: "domcontentloaded",
+                timeout: 40000,
             });
 
             const urls = await page.evaluate((len) => {
@@ -80,14 +81,29 @@ class WebScraperService {
                 return links.map((h3) => h3.parentElement.href).slice(0, len);
             }, length);
 
-            for (const url of urls) {
-                try {
-                    await page.goto(url, {waitUntil: "domcontentloaded", timeout: 15000});
-                    const html = await page.content();
-                    const dom = new JSDOM(html, {url, virtualConsole});
+            const scrapedUrls = [];
 
+            for (const url of urls) {
+                await page.route("**/*", (route) => {
+                    const type = route.request().resourceType();
+                    if (["image", "stylesheet", "font", "script", "media", "xhr", "fetch"].includes(type)) {
+                        route.abort();
+                    } else {
+                        route.continue();
+                    }
+                });
+
+                await page.goto(url, {waitUntil: "load", timeout: 15000, }).catch((err)=> console.log(err))
+                const html = await page.content();
+                console.log({url, len:html.length})
+                if(html.length > 300_000) {
+                    continue;
+                };
+                const dom = new JSDOM(html, {url, virtualConsole});
+                try {
                     const reader = new Readability(dom.window.document);
                     const article = reader.parse();
+                    console.log({url});
 
                     if (article?.textContent) {
                         topArticles.push({
@@ -97,12 +113,14 @@ class WebScraperService {
                             site: article.siteName,
                         });
                     }
-                    dom.window.close();
+                    scrapedUrls.push(url);
                 } catch (innerErr) {
                     console.error(`Skipping ${url}:`, innerErr.message);
+                } finally {
+                    dom.window.close();
                 }
             }
-            return {citations: urls, articles: topArticles};
+            return {citations: scrapedUrls, articles: topArticles};
         } finally {
             await context.close();
         }
